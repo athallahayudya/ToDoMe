@@ -1,64 +1,155 @@
-import 'dart:convert'; // Untuk jsonEncode/Decode
-import 'package:http/http.dart' as http; // Package http yang tadi di-add
-import '../models/task.dart'; // Model Task yang sudah kita buat
+import 'dart:io'; // Untuk deteksi platform
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // <-- 1. Tambah ini
+import '../models/task.dart'; // (Model Task tetap sama)
 
 class ApiService {
-  // ⚠️ PENTING: Lihat penjelasan di bawah tentang IP Address ini
-  // Ini adalah alamat server backend Laravel Anda
-  // (Pastikan server Laravel Anda berjalan: php artisan serve)
-  static const String _baseUrl = "http://10.0.2.2:8000/api";
+  // --- KONFIGURASI DASAR ---
 
-  // Header default, kita memberi tahu server bahwa kita mengirim/menerima JSON
-  static const Map<String, String> _headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  // Gunakan IP 10.0.2.2 untuk Emulator Android
+  // Gunakan IP 127.0.0.1 (localhost) jika menjalankan di Windows/Web
+  static final String _baseUrl = Platform.isAndroid ? "http://10.0.2.2:8000/api" : "http://127.0.0.1:8000/api";
 
-  // -----------------------------------------------------------
-  // 1. READ: Mengambil SEMUA data tugas (GET /tasks)
-  // -----------------------------------------------------------
+  // Catatan: Membuat "lemari besi" untuk menyimpan token
+  final _storage = const FlutterSecureStorage();
+
+  // --- HELPER INTERNAL ---
+
+  // Catatan: Helper untuk membaca token dari "lemari besi"
+  Future<String?> _getToken() async {
+    return await _storage.read(key: 'auth_token');
+  }
+
+  // Catatan: Helper "ajaib" yang membuat header
+  // Ini otomatis menempelkan token jika ada
+  Future<Map<String, String>> _getHeaders() async {
+    final token = await _getToken();
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      // Jika token ada, tambahkan header Authorization
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  // --- 1. FUNGSI AUTENTIKASI ---
+
+  // Fungsi untuk LOGIN
+  Future<bool> login(String email, String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/login'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Jika sukses, simpan token
+        final data = jsonDecode(response.body);
+        await _storage.write(key: 'auth_token', value: data['access_token']);
+        return true;
+      } else {
+        // Jika gagal (misal: 401 password salah), return false
+        return false;
+      }
+    } catch (e) {
+      print("Error saat login: $e");
+      return false;
+    }
+  }
+
+  // Fungsi untuk REGISTER
+  Future<bool> register(String name, String email, String password, String passwordConfirmation) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/register'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        }),
+      );
+      // 201 = Created
+      return response.statusCode == 201;
+    } catch (e) {
+      print("Error saat register: $e");
+      return false;
+    }
+  }
+
+  // Fungsi untuk LOGOUT
+  Future<void> logout() async {
+    try {
+      // Panggil API logout di backend (untuk menghapus token di server)
+      await http.post(
+        Uri.parse('$_baseUrl/logout'),
+        headers: await _getHeaders(), // Wajib kirim token untuk tahu siapa yg logout
+      );
+    } catch (e) {
+      print("Error saat API logout: $e");
+      // Tidak masalah, tetap hapus token di HP
+    } finally {
+      // Hapus token dari "lemari besi" di HP
+      await _storage.delete(key: 'auth_token');
+    }
+  }
+
+  // Fungsi untuk Cek apakah user sedang login (cek token)
+  Future<bool> isLoggedIn() async {
+    final token = await _getToken();
+    return token != null;
+  }
+
+  // --- 2. FUNGSI TASK (SEKARANG AMAN) ---
+
+  // Catatan: Fungsi ini sekarang OTOMATIS mengirim token
   Future<List<Task>> getTasks() async {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/tasks'),
-        headers: _headers,
+        headers: await _getHeaders(), // <-- Menggunakan header aman
       );
 
-      // Jika server merespon "OK" (sukses)
       if (response.statusCode == 200) {
-        // Kita gunakan helper 'taskFromJson' dari model kita
-        // untuk mengubah List JSON menjadi List<Task>
         return taskFromJson(response.body);
+      } else if (response.statusCode == 401) {
+        // 401 = Unauthorized (Token tidak valid/kedaluwarsa)
+        await logout(); // Otomatis logout user
+        throw Exception('Sesi habis. Silakan login kembali.');
       } else {
-        // Jika gagal, lemparkan error
-        throw Exception('Gagal mengambil data tasks. Status: ${response.statusCode}');
+        throw Exception('Gagal mengambil tasks. Status: ${response.statusCode}');
       }
     } catch (e) {
-      // Menangkap error (misal: tidak ada koneksi internet)
       throw Exception('Error saat getTasks: $e');
     }
   }
 
-  // -----------------------------------------------------------
-  // 2. CREATE: Membuat tugas BARU (POST /tasks)
-  // -----------------------------------------------------------
-  Future<Task> createTask(String judul, String? deskripsi) async {
+  // Catatan: Fungsi ini juga sekarang OTOMATIS mengirim token
+  Future<Task> createTask(String judul, {String? deskripsi, List<int>? categoryIds}) async {
     try {
       final body = jsonEncode({
         'judul': judul,
         'deskripsi': deskripsi,
+        'category_ids': categoryIds, // Kirim kategori
       });
 
       final response = await http.post(
         Uri.parse('$_baseUrl/tasks'),
-        headers: _headers,
+        headers: await _getHeaders(), // <-- Menggunakan header aman
         body: body,
       );
 
-      // Jika server merespon "Created" (sukses)
       if (response.statusCode == 201) {
-        // Ubah balasan JSON dari server menjadi satu objek Task
         return Task.fromJson(jsonDecode(response.body));
+      } else if (response.statusCode == 401) {
+        await logout();
+        throw Exception('Sesi habis. Silakan login kembali.');
       } else {
         throw Exception('Gagal membuat task. Status: ${response.statusCode}');
       }
@@ -67,48 +158,6 @@ class ApiService {
     }
   }
 
-  // -----------------------------------------------------------
-  // 3. UPDATE: Mengubah data tugas (PUT /tasks/{id})
-  // -----------------------------------------------------------
-  Future<Task> updateTaskStatus(int id, bool statusSelesai) async {
-     try {
-      final body = jsonEncode({
-        'status_selesai': statusSelesai,
-      });
-
-      final response = await http.put(
-        Uri.parse('$_baseUrl/tasks/$id'),
-        headers: _headers,
-        body: body,
-      );
-
-      if (response.statusCode == 200) {
-        return Task.fromJson(jsonDecode(response.body));
-      } else {
-        throw Exception('Gagal mengupdate status task. Status: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error saat updateTaskStatus: $e');
-    }
-  }
-
-  // -----------------------------------------------------------
-  // 4. DELETE: Menghapus tugas (DELETE /tasks/{id})
-  // -----------------------------------------------------------
-  Future<void> deleteTask(int id) async {
-    try {
-      final response = await http.delete(
-        Uri.parse('$_baseUrl/tasks/$id'),
-        headers: _headers,
-      );
-
-      // Jika status BUKAN 204 (No Content), berarti gagal
-      if (response.statusCode != 204) {
-        throw Exception('Gagal menghapus task. Status: ${response.statusCode}');
-      }
-      // Jika sukses (204), tidak perlu mengembalikan apa-apa
-    } catch (e) {
-      throw Exception('Error saat deleteTask: $e');
-    }
-  }
+  // (Anda bisa tambahkan fungsi updateTask, deleteTask, getCategories, dll
+  // di sini dengan pola yang sama persis: gunakan '_getHeaders()')
 }
