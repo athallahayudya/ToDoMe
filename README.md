@@ -71,6 +71,7 @@ File `api_service.dart` saat ini sudah diatur untuk mendeteksi Android secara ot
 * **`flutter_secure_storage`:**
     * Digunakan untuk menyimpan **`access_token`** (dari Login) secara aman dan terenkripsi di dalam HP.
     * Token ini kemudian otomatis dilampirkan di setiap *request* API yang aman.
+* **`flutter pub add intl`:**
 
 ## 5. Struktur Folder (Penting)
 
