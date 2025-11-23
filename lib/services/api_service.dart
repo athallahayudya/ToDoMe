@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart' hide Category; // Hide Category bawaan Flutter
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -276,6 +277,68 @@ class ApiService {
     } else {
        print("DEBUG: Gagal Create Kategori: ${response.body}");
       throw Exception('Gagal membuat kategori');
+    }
+  }
+
+    //PROFILE
+  Future<Map<String, dynamic>> getProfile() async {
+    final token = await _storage.read(key: 'token');
+
+    final res = await http.get(
+      Uri.parse("$_baseUrl/profile"),
+      headers: {
+        "Authorization": "Bearer $token",
+        "Accept": "application/json",
+      },
+    );
+
+    print("=== PROFILE STATUS: ${res.statusCode}");
+    print("=== PROFILE BODY: ${res.body}");
+
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body);
+    } else {
+      throw Exception("Gagal mengambil profil");
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProfile({
+    required String name,
+    String? bio,
+    File? photo, // null = tidak ganti foto
+  }) async {
+    final uri = Uri.parse("$_baseUrl/profile");
+
+    final token = await _storage.read(key: 'token');
+
+    final request = http.MultipartRequest('POST', uri);
+
+    // Header auth
+    request.headers['Authorization'] = "Bearer $token";
+    request.headers['Accept'] = "application/json";
+
+    // Data text
+    request.fields['name'] = name;
+    if (bio != null) request.fields['bio'] = bio;
+
+    // Upload foto jika ada
+    if (photo != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          "photo", photo.path),
+      );
+    }
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+
+    print("DEBUG UPDATE STATUS: ${response.statusCode}");
+    print("DEBUG UPDATE BODY: ${response.body}");
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception("Gagal update profil");
     }
   }
 }
