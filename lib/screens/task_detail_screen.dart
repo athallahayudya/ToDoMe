@@ -4,6 +4,7 @@ import 'package:todome/models/category.dart';
 import 'package:todome/models/subtask.dart';
 import 'package:todome/models/task.dart';
 import 'package:todome/services/api_service.dart';
+import 'package:todome/services/calendar_service.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final Task task;
@@ -16,10 +17,12 @@ class TaskDetailScreen extends StatefulWidget {
 
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final ApiService _apiService = ApiService();
+  final CalendarService _calendarService = CalendarService();
   
   // --- STATE LOKAL ---
   late Task _task; 
   bool _isDataDirty = false; 
+  bool _isSyncingCalendar = false;
   
   List<Category> _allCategories = []; 
   final TextEditingController _subtaskController = TextEditingController();

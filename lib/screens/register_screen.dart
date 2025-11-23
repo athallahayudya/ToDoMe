@@ -23,24 +23,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false; // <-- VARIABEL BARU
 
-  Future<void> _register() async {
+Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
-      // Cek apakah password & konfirmasi password sama
       if (_passwordController.text != _passwordConfirmController.text) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password dan Konfirmasi Password tidak cocok!'),
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('Password tidak cocok!'), backgroundColor: Colors.red),
         );
-        return; // Hentikan jika tidak cocok
+        return;
       }
 
-      setState(() {
-        _isLoading = true;
-      });
+      setState(() => _isLoading = true);
 
       try {
+        // Panggil Register API
         bool registerSuccess = await _apiService.register(
           _nameController.text,
           _emailController.text,
@@ -48,38 +43,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
 
         if (registerSuccess) {
-          // Jika sukses: Tampilkan pesan & kembali ke Login
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registrasi Berhasil! Silakan Login.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.of(context).pop(); // Kembali ke halaman sebelumnya (Login)
+          if (mounted) {
+            // --- UBAH BAGIAN INI ---
+            
+            // 1. Tampilkan Dialog Sukses & Instruksi Cek Email
+            showDialog(
+              context: context,
+              barrierDismissible: false, // User wajib klik tombol OK
+              builder: (ctx) => AlertDialog(
+                title: const Text("Registrasi Berhasil"),
+                content: const Text(
+                  "Link verifikasi telah dikirim ke email Anda.\n\n"
+                  "Silakan buka email Anda, klik link verifikasi, lalu login kembali di sini."
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      // Tutup Dialog
+                      Navigator.of(ctx).pop(); 
+                      // Kembali ke Login Screen
+                      Navigator.of(context).pop(); 
+                    },
+                    child: const Text("OK, Saya Mengerti"),
+                  ),
+                ],
+              ),
+            );
+          }
         } else {
-          // Gagal (kemungkinan email sudah terdaftar)
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registrasi Gagal! Email mungkin sudah digunakan.'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Registrasi Gagal! Email mungkin sudah digunakan.'), backgroundColor: Colors.red),
+            );
+          }
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+         // Error handling...
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
