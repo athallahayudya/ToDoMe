@@ -357,3 +357,130 @@ Untuk mode pengembangan (Developer Mode), biasanya cukup **mengaktifkan** Calend
 
 ---
 
+## 13. Setup & Troubleshooting Lanjutan (Profil & Kamera)
+
+Bagian ini mencakup konfigurasi tambahan untuk fitur **Edit Profil**, termasuk akses kamera, galeri, izin Android/iOS, serta update SDK yang diperlukan agar aplikasi berjalan tanpa error.
+
+---
+
+### 13.1 Update Dependency di pubspec.yaml
+
+Pastikan package berikut sudah ditambahkan untuk fitur foto profil:
+
+```yaml
+dependencies:
+  image_picker: ^1.2.1        # Mengambil gambar dari kamera/galeri
+  permission_handler: ^12.0.1 # Mengelola izin kamera/galeri
+```
+
+Jalankan:
+
+```bash
+flutter pub get
+```
+
+---
+
+### 13.2 Konfigurasi Izin Android (AndroidManifest.xml)
+
+Agar aplikasi tidak crash saat mengambil gambar dari kamera atau membuka galeri, tambahkan izin berikut pada:
+
+```
+android/app/src/main/AndroidManifest.xml
+```
+
+Tambahkan di **atas** tag `<application ...>`:
+
+```xml
+<manifest ...>
+
+    <!-- IZIN KAMERA & GALERI -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- Untuk akses galeri tergantung versi Android -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+
+    <application ...>
+```
+
+Catatan:  
+Android 13+ menggunakan `READ_MEDIA_IMAGES` menggantikan `READ_EXTERNAL_STORAGE`.
+
+---
+
+### 13.3 Update Versi Android SDK (build.gradle)
+
+Package modern seperti `image_picker` memerlukan Android SDK terbaru.
+
+Buka:
+
+```
+android/app/build.gradle
+```
+
+Pastikan nilai berikut:
+
+```gradle
+android {
+    namespace = "com.example.todome"
+    compileSdk = 36     // WAJIB 35 atau 36
+
+    defaultConfig {
+        minSdk = flutter.minSdkVersion
+        targetSdk = 36  // WAJIB 35 atau 36
+    }
+}
+```
+
+Jika tidak dinaikkan, aplikasi bisa:
+
+- crash saat membuka kamera,
+- gagal build,
+- menampilkan error “Manifest merger failed”.
+
+---
+
+### 13.4 Konfigurasi iOS (Info.plist)
+
+Jika menjalankan aplikasi di iOS (device/simulator), Anda harus menambahkan izin di:
+
+```
+ios/Runner/Info.plist
+```
+
+Tambahkan:
+
+```xml
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Aplikasi membutuhkan akses galeri untuk memilih foto profil.</string>
+
+<key>NSCameraUsageDescription</key>
+<string>Aplikasi membutuhkan akses kamera untuk mengambil foto profil baru.</string>
+```
+
+Jika izin ini tidak ada, aplikasi akan langsung crash pada iOS.
+
+---
+
+### 13.5 Troubleshooting: Kamera Emulator Error
+
+Jika kamera di Android Emulator menampilkan layar hitam, freeze, atau crash:
+
+#### Solusi:
+1. Buka **Device Manager** di Android Studio  
+2. Klik ikon **Edit (Pencil)** pada emulator  
+3. Klik **Show Advanced Settings**  
+4. Pada bagian **Camera**:
+   - Ubah **Front Camera** → `Webcam0` atau `Emulated`
+   - Ubah **Back Camera** → `Webcam0` atau `Emulated`
+5. Klik **Finish**
+6. Lakukan **Cold Boot Now** pada emulator
+
+Emulator default memang sering gagal membaca kamera laptop atau virtual device.
+
+---
+
+
+
