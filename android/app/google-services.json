@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "414205389284",
+    "project_id": "todome-app-719b4",
+    "storage_bucket": "todome-app-719b4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:414205389284:android:16f13a804fb66e3d28fff1",
+        "android_client_info": {
+          "package_name": "com.todome.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAszwnzrWQm-WhtVSLGI_Ff9fBqGp-v0ZM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

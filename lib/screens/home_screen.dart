@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' hide FilterCallback;
 import 'package:intl/intl.dart';
+import 'package:showcaseview/showcaseview.dart'; // Import Showcase
 import 'package:todome/screens/task_detail_screen.dart';
 import 'package:todome/utils/time_helper.dart';
 import '../models/task.dart';
@@ -8,11 +9,9 @@ import '../models/subtask.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/task_tile.dart'; 
 
-// Tipe data untuk callback
 typedef TaskUpdateCallback = Function(Task task, Map<String, dynamic> data);
 
 class HomeScreen extends StatelessWidget {
-  // --- Parameter ---
   final List<Task> ongoingTasks;
   final List<Task> overdueTasks;
   final List<Task> completedTasks;
@@ -24,13 +23,15 @@ class HomeScreen extends StatelessWidget {
   final FilterCallback onFilterSelected;
   final TaskUpdateCallback onUpdateTask;
 
-  // --- Parameter Buka/Tutup ---
   final bool isOngoingExpanded;
   final bool isOverdueExpanded;
   final bool isCompletedExpanded;
   final Function(bool) onOngoingToggled;
   final Function(bool) onOverdueToggled;
   final Function(bool) onCompletedToggled;
+
+  // PARAMETER BARU: KUNCI SHOWCASE
+  final GlobalKey? categoryShowcaseKey;
 
   HomeScreen({
     Key? key,
@@ -50,6 +51,8 @@ class HomeScreen extends StatelessWidget {
     required this.onOngoingToggled,
     required this.onOverdueToggled,
     required this.onCompletedToggled,
+    
+    this.categoryShowcaseKey, // Terima Kunci
   }) : super(key: key);
 
 
@@ -68,9 +71,9 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // --- Widget Filter Kategori ---
+  // Widget Filter Kategori (DIBUNGKUS SHOWCASE)
   Widget _buildCategoryChips() {
-    return Container(
+    Widget categoryList = Container(
       height: 50,
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -107,9 +110,22 @@ class HomeScreen extends StatelessWidget {
         },
       ),
     );
+
+    // BUNGKUS DENGAN SHOWCASE JIKA KUNCI ADA
+    if (categoryShowcaseKey != null) {
+      return Showcase(
+        key: categoryShowcaseKey!,
+        title: 'Filter Kategori',
+        description: 'Gunakan ini untuk memfilter tugas berdasarkan kategorinya.',
+        tooltipBackgroundColor: Colors.purple,
+        textColor: Colors.white,
+        child: categoryList,
+      );
+    }
+
+    return categoryList;
   }
 
-  // --- Widget Daftar Tugas ---
   Widget _buildTaskList(BuildContext context) {
     if (ongoingTasks.isEmpty && overdueTasks.isEmpty && completedTasks.isEmpty) {
       return LayoutBuilder(builder: (context, constraints) {
@@ -131,7 +147,6 @@ class HomeScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(8.0),
       children: [
-        // --- 1. GRUP TUGAS AKTIF ---
         _buildTaskSection(
           context,
           'Tugas Aktif',
@@ -140,7 +155,6 @@ class HomeScreen extends StatelessWidget {
           onToggled: onOngoingToggled,
         ),
 
-        // --- 2. GRUP TERLAMBAT ---
         _buildTaskSection(
           context,
           'Terlambat',
@@ -150,7 +164,6 @@ class HomeScreen extends StatelessWidget {
           isOverdue: true,
         ),
 
-        // --- 3. GRUP SELESAI ---
         _buildTaskSection(
           context,
           'Selesai',
@@ -162,7 +175,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // --- HELPER: Widget untuk 1 Grup ---
   Widget _buildTaskSection(
       BuildContext context, String title, List<Task> tasks,
       {required bool isExpanded,
@@ -201,21 +213,16 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // --- HELPER: Widget untuk 1 Item Tugas (MENGGUNAKAN TASK TILE) ---
   Widget _buildTaskListItem(BuildContext context, Task task) {
-    // 2. KITA GUNAKAN WIDGET TASK TILE DISINI
     return TaskTile(
       task: task,
-      // A. Aksi Checklist
       onStatusChanged: (bool? newValue) {
         if (newValue == null) return;
         onUpdateTask(task, {'status_selesai': newValue});
       },
-      // B. Aksi Bintang
       onStarToggled: () {
         onUpdateTask(task, {'is_starred': !task.isStarred});
       },
-      // C. Aksi Klik (Detail)
       onTap: () async {
         final bool? dataDiperbarui = await Navigator.push(
           context,

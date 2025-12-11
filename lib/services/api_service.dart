@@ -33,11 +33,49 @@ class ApiService {
     return headers;
   }
 
+  // --- FCM TOKEN ---
+  Future<void> saveFcmToken(String token) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$_baseUrl/save-fcm-token'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'fcm_token': token,
+        }),
+      );
+
+      if (res.statusCode != 200) {
+        print("❌ Gagal simpan FCM Token: ${res.body}");
+      } else {
+        print("✅ FCM Token berhasil disimpan ke server");
+      }
+    } catch (e) {
+      print("❌ Error simpan FCM Token: $e");
+    }
+  }
+
   // --- AUTH ---
 
   Future<bool> isLoggedIn() async {
     final token = await _storage.read(key: 'token');
-    return token != null;
+    if (token == null) return false;
+
+    try {
+      final res = await http.get(
+        Uri.parse('$_baseUrl/profile'),
+        headers: await _getHeaders(),
+      );
+
+      if (res.statusCode == 200) return true;
+
+      // kalau token invalid/hilang → hapus token
+      await _storage.delete(key: 'token');
+      return false;
+
+    } catch (e) {
+      await _storage.delete(key: 'token');
+      return false;
+    }
   }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
@@ -151,6 +189,31 @@ class ApiService {
     }
   }
 
+  // --- CHANGE PASSWORD ---
+  Future<bool> changePassword(String currentPassword, String newPassword) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/change-password'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'current_password': currentPassword,
+          'new_password': newPassword,
+          'new_password_confirmation': newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print("Gagal ganti password: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Error koneksi ganti password: $e");
+      return false;
+    }
+  }
+
   // --- TASKS ---
 
   Future<List<Task>> getTasks() async {
@@ -165,7 +228,7 @@ class ApiService {
     }
   }
 
-  Future<Task> createTask({required String judul, String? deskripsi, DateTime? deadline, List<int>? categoryIds, List<String>? subtasks}) async {
+  Future<Task> createTask({required String judul, String? deskripsi, DateTime? deadline, List<int>? categoryIds, List<String>? subtasks, String? recurrence}) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/tasks'),
       headers: await _getHeaders(),
@@ -175,6 +238,7 @@ class ApiService {
         'deadline': deadline?.toIso8601String(),
         'category_ids': categoryIds,
         'subtasks': subtasks,
+        'recurrence': recurrence,
       }),
     );
 

@@ -53,8 +53,6 @@ class _GoogleSetupScreenState extends State<GoogleSetupScreen> {
       setState(() => _isLoading = true);
 
       try {
-        // 2. Panggil Register API
-        // Kita gunakan widget.googleEmail yang dikirim dari halaman sebelumnya
         bool success = await _apiService.register(
           _nameController.text,
           widget.googleEmail, // Email otomatis dari Google
@@ -62,14 +60,12 @@ class _GoogleSetupScreenState extends State<GoogleSetupScreen> {
         );
 
         if (success) {
-           // 3. Jika sukses, Login otomatis agar dapat Token
            await _apiService.login(widget.googleEmail, _passwordController.text);
 
            if (mounted) {
              ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Akun berhasil dibuat!'), backgroundColor: Colors.green),
              );
-             // Masuk ke Home dan hapus semua halaman sebelumnya
              Navigator.of(context).pushAndRemoveUntil(
                MaterialPageRoute(builder: (_) => const MainScreen()),
                (route) => false,

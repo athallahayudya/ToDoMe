@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:showcaseview/showcaseview.dart'; // Import showcaseview
+import 'package:shared_preferences/shared_preferences.dart'; // Import shared_preferences
 import 'home_screen.dart';
 import 'calendar_screen.dart';
 import 'profile_screen.dart'; 
@@ -23,6 +25,12 @@ class _MainScreenState extends State<MainScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _categoryController = TextEditingController();
 
+  // --- KUNCI SHOWCASE ---
+  final GlobalKey _addFabKey = GlobalKey(); 
+  final GlobalKey _categoryKey = GlobalKey(); 
+  final GlobalKey _calendarTabKey = GlobalKey(); 
+  final GlobalKey _profileTabKey = GlobalKey(); 
+
   int _selectedIndex = 0;
   bool _isLoading = true;
   String _errorMessage = '';
@@ -42,11 +50,47 @@ class _MainScreenState extends State<MainScreen> {
   bool _isOngoingExpanded = true;
   bool _isOverdueExpanded = true;
   bool _isCompletedExpanded = false;
+  
+  // Variabel untuk mencegah cek berulang kali
+  bool _tutorialChecked = false;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  // Fungsi cek tutorial
+  void _checkTutorial(BuildContext context) async {
+    if (_tutorialChecked) return; // Cegah pemanggilan berulang
+    _tutorialChecked = true;
+
+    final prefs = await SharedPreferences.getInstance();
+    
+    // GANTI KEY INI JIKA INGIN RESET TUTORIAL LAGI (misal ke v3, v4)
+    bool seen = prefs.getBool('seen_full_tutorial_v2') ?? false; 
+
+    debugPrint("🔍 [TUTORIAL] Status dilihat: $seen");
+
+    // Jika belum pernah lihat, dan data sudah selesai loading, tampilkan showcase
+    if (!seen && !_isLoading && mounted) {
+      debugPrint("🚀 [TUTORIAL] Memulai Showcase...");
+      
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+           if (mounted) {
+             ShowCaseWidget.of(context).startShowCase([
+               _addFabKey, 
+               _categoryKey, 
+               _calendarTabKey, 
+               _profileTabKey
+             ]);
+             // Simpan status bahwa sudah dilihat
+             prefs.setBool('seen_full_tutorial_v2', true);
+           }
+        });
+      });
+    }
   }
 
   Future<void> _loadData() async {
@@ -168,7 +212,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // --- POP-UP TAMBAH TUGAS (ADD TASK SHEET) ---
   void _showAddTaskSheet() {
     showModalBottomSheet(
       context: context,
@@ -182,34 +225,35 @@ class _MainScreenState extends State<MainScreen> {
         ),
         child: AddTaskSheet(
           categories: _allCategories,
-          // PERBAIKAN: onCreateCategory sekarang return Category object
           onCreateCategory: (name) async {
              try {
                final newCat = await _apiService.createCategory(name);
-               
-               // Update list global di MainScreen juga
                final newCats = await _apiService.getCategories();
                setState(() => _allCategories = newCats);
-               
-               // Kembalikan kategori baru ke Sheet agar bisa ditampilkan
                return newCat;
              } catch (e) {
                _showError(e.toString());
                return null;
              }
           },
-          onSave: (judul, deskripsi, deadline, catIds, subtasks) async {
+          onSave: (judul, deskripsi, deadline, catIds, subtasks, recurrence) async {
              try {
-               await _apiService.createTask(
+               debugPrint("Mencoba membuat tugas baru: $judul");
+               final newTask = await _apiService.createTask(
                  judul: judul, 
                  deskripsi: deskripsi, 
                  deadline: deadline, 
                  categoryIds: catIds,
-                 subtasks: subtasks 
+                 subtasks: subtasks,
+                 recurrence: recurrence 
                );
                _loadData(); 
+               debugPrint("SUKSES: Tugas dibuat dengan ID: ${newTask.id}");
+               return newTask.id; 
              } catch (e) {
+               debugPrint("ERROR: Gagal membuat tugas: $e");
                _showError(e.toString());
+               return null;
              }
           },
         ),
@@ -294,6 +338,8 @@ class _MainScreenState extends State<MainScreen> {
                   onOngoingToggled: _toggleOngoing,
                   onOverdueToggled: _toggleOverdue,
                   onCompletedToggled: _toggleCompleted,
+                  
+                  categoryShowcaseKey: _categoryKey, 
                 ),
 
       CalendarScreen(
@@ -304,86 +350,119 @@ class _MainScreenState extends State<MainScreen> {
       const ProfileScreen(), 
     ];
 
-    return Scaffold(
-      key: _scaffoldKey,
+    return ShowCaseWidget(
+      builder: (context) {
+        // Cek tutorial setelah data selesai dimuat
+        if (!_isLoading) {
+          _checkTutorial(context);
+        }
 
-      appBar: AppBar(
-        title: Text(
-          _selectedIndex == 0 ? _appBarTitle 
-          : (_selectedIndex == 1 ? 'Kalender' : 'Profil')
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-        actions: [
-          if (_selectedIndex == 0)
-            IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData)
-        ],
-      ),
+        return Scaffold(
+          key: _scaffoldKey,
 
-      drawer: AppDrawer(
-        categories: _allCategories,
-        allTasksCount: _allTasks.length,
-        starredTasksCount: _allTasks.where((t) => t.isStarred).length,
-        onFilterSelected: _onFilterSelected,
-        onAddCategory: _showAddCategoryDialog,
-        isKategoriExpanded: _isKategoriExpanded,
-        onKategoriToggled: _toggleKategori,
-        onOpenStarredPage: _navigateToStarredPage, 
-        
-        onDeleteCategory: (category) async {
-          try {
-            await _apiService.deleteCategory(category.id);
-            if (_selectedCategoryId == category.id) {
-              setState(() {
-                _currentFilterType = TaskFilterType.all;
-                _selectedCategoryId = null;
-                _selectedIndex = 0;
-              });
-            }
-            _loadData();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Kategori '${category.name}' dihapus")),
-            );
-          } catch (e) {
-            _showError("Gagal menghapus: $e");
-          }
-        },
-      ),
-
-      body: widgetOptions.elementAt(_selectedIndex),
-
-      floatingActionButton: _selectedIndex == 0 
-          ? FloatingActionButton(
-              onPressed: _showAddTaskSheet,
-              tooltip: 'Tambah Tugas',
-              backgroundColor: Colors.purple[100], 
-              child: const Icon(Icons.add, color: Colors.purple),
-            )
-          : null,
-
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.list_alt_outlined),
-            selectedIcon: Icon(Icons.list_alt),
-            label: 'Tugas',
+          appBar: AppBar(
+            title: Text(
+              _selectedIndex == 0 ? _appBarTitle 
+              : (_selectedIndex == 1 ? 'Kalender' : 'Profil')
+            ),
+            leading: IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            actions: [
+              if (_selectedIndex == 0)
+                IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData)
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: 'Kalender',
+
+          drawer: AppDrawer(
+            categories: _allCategories,
+            allTasksCount: _allTasks.length,
+            starredTasksCount: _allTasks.where((t) => t.isStarred).length,
+            onFilterSelected: _onFilterSelected,
+            onAddCategory: _showAddCategoryDialog,
+            isKategoriExpanded: _isKategoriExpanded,
+            onKategoriToggled: _toggleKategori,
+            onOpenStarredPage: _navigateToStarredPage, 
+            
+            onDeleteCategory: (category) async {
+              try {
+                await _apiService.deleteCategory(category.id);
+                if (_selectedCategoryId == category.id) {
+                  setState(() {
+                    _currentFilterType = TaskFilterType.all;
+                    _selectedCategoryId = null;
+                    _selectedIndex = 0;
+                  });
+                }
+                _loadData();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Kategori '${category.name}' dihapus")),
+                );
+              } catch (e) {
+                _showError("Gagal menghapus: $e");
+              }
+            },
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil',
+
+          body: widgetOptions.elementAt(_selectedIndex),
+
+          floatingActionButton: _selectedIndex == 0 
+              ? Showcase(
+                  key: _addFabKey,
+                  title: 'Buat Tugas Baru',
+                  description: 'Tekan tombol ini untuk mulai mencatat tugas.',
+                  targetShapeBorder: const CircleBorder(),
+                  tooltipBackgroundColor: Colors.purple,
+                  textColor: Colors.white,
+                  child: FloatingActionButton(
+                    onPressed: _showAddTaskSheet,
+                    tooltip: 'Tambah Tugas',
+                    backgroundColor: Colors.purple[100], 
+                    child: const Icon(Icons.add, color: Colors.purple),
+                  ),
+                )
+              : null,
+
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _onItemTapped,
+            destinations: [
+              const NavigationDestination(
+                icon: Icon(Icons.list_alt_outlined),
+                selectedIcon: Icon(Icons.list_alt),
+                label: 'Tugas',
+              ),
+              NavigationDestination(
+                icon: Showcase(
+                  key: _calendarTabKey,
+                  title: 'Kalender',
+                  description: 'Lihat deadline tugasmu dalam tampilan kalender.',
+                  tooltipBackgroundColor: Colors.purple,
+                  textColor: Colors.white,
+                  targetShapeBorder: const CircleBorder(),
+                  child: const Icon(Icons.calendar_month_outlined),
+                ),
+                selectedIcon: const Icon(Icons.calendar_month),
+                label: 'Kalender',
+              ),
+              NavigationDestination(
+                icon: Showcase(
+                  key: _profileTabKey,
+                  title: 'Profil',
+                  description: 'Atur akun, ganti password, dan lihat statistikmu.',
+                  tooltipBackgroundColor: Colors.purple,
+                  textColor: Colors.white,
+                  targetShapeBorder: const CircleBorder(),
+                  child: const Icon(Icons.person_outline),
+                ),
+                selectedIcon: const Icon(Icons.person),
+                label: 'Profil',
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

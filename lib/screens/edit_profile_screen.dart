@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../services/api_service.dart';
+import 'change_password_screen.dart'; // 1. IMPORT SCREEN GANTI PASSWORD
 
 class EditProfileScreen extends StatefulWidget {
-  // Parameter untuk menerima data lama
   final String currentName;
   final String currentBio;
   final String currentPhotoUrl;
@@ -27,12 +27,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _bioController;
 
   bool _saving = false;
-  File? _newPhoto; // File foto baru jika user ganti foto
+  File? _newPhoto;
 
   @override
   void initState() {
     super.initState();
-    // ISI FORM DENGAN DATA LAMA (Agar tidak kosong saat dibuka)
     _nameController = TextEditingController(text: widget.currentName);
     _bioController = TextEditingController(text: widget.currentBio);
   }
@@ -44,15 +43,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
- Future<void> _pickImage(ImageSource source) async {
-    // Tutup dialog pilihan (bottom sheet) dulu
+  Future<void> _pickImage(ImageSource source) async {
     Navigator.of(context).pop(); 
-    
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
         source: source,
-        maxWidth: 600, // Kompres gambar biar upload gak berat
+        maxWidth: 600,
         imageQuality: 80, 
       );
 
@@ -66,7 +63,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  // 2. FUNGSI MENAMPILKAN PILIHAN (Galeri vs Kamera)
   void _showPickerOptions() {
     showModalBottomSheet(
       context: context,
@@ -101,7 +97,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       await api.updateProfile(
         name: _nameController.text,
         bio: _bioController.text,
-        photo: _newPhoto, // Kirim foto jika ada
+        photo: _newPhoto,
       );
 
       if (!mounted) return;
@@ -110,7 +106,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         const SnackBar(content: Text("Profil berhasil diperbarui")),
       );
 
-      // Kembali ke halaman profil dengan sinyal sukses
       Navigator.pop(context, true);
       
     } catch (e) {
@@ -125,7 +120,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Logika Menampilkan Gambar (Foto Baru vs Url Lama vs Icon Default)
     ImageProvider? imageProvider;
     if (_newPhoto != null) {
       imageProvider = FileImage(_newPhoto!);
@@ -160,7 +154,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         onTap: _showPickerOptions,
                         child: CircleAvatar(
                           radius: 18,
-                          backgroundColor: Colors.blue,
+                          backgroundColor: Colors.purple, // Sesuaikan warna tema
                           child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
                         ),
                       ),
@@ -197,6 +191,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
               ),
 
+              const SizedBox(height: 20),
+
+              // 2. TOMBOL TEKS GANTI PASSWORD (BARU)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () {
+                    // Navigasi ke screen ChangePassword
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+                    );
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.purple, // Warna teks
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap, // Agar area klik pas
+                  ),
+                  icon: const Icon(Icons.lock_reset),
+                  label: const Text(
+                    "Ganti Password",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+
               const SizedBox(height: 32),
 
               // --- TOMBOL SIMPAN ---
@@ -204,6 +224,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                  ),
                   onPressed: _saving ? null : saveProfile,
                   child: _saving
                       ? const SizedBox(
