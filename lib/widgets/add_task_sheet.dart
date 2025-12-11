@@ -50,6 +50,28 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
     {'value': 'yearly', 'label': 'Setiap Tahun'},
   ];
 
+  // --- TAMBAHAN: Helper untuk gaya Input Field ungu & rounded ---
+  InputDecoration _buildInputDecoration(String label, IconData icon, {String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      prefixIcon: Icon(icon, color: Colors.purple),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.purple, width: 2),
+      ),
+      filled: true,
+      fillColor: Colors.grey[50],
+      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -153,74 +175,96 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Menggunakan DraggableScrollableSheet atau SingleChildScrollView agar bisa scroll
     return Padding(
+      // Padding ini memastikan pop-up naik saat keyboard muncul
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom, // Menghindari Keyboard
-        left: 16, right: 16, top: 12
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24, 
+        left: 24, 
+        right: 24, 
+        top: 24
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           // Handle Bar (Garis kecil di atas)
-          Container(
-            width: 40, height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+          // --- 1. HEADER BARU (Ikon Ungu + Judul) ---
+          // Menggantikan garis handle bar lama
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.purple[50],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.task_alt_rounded, color: Colors.purple, size: 28),
+              ),
+              const SizedBox(width: 16),
+              const Text(
+                'Tugas Baru',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+            ],
           ),
 
-          // AREA SCROLLABLE (Agar muat banyak konten)
+          const SizedBox(height: 24),
+
+          // Area Scrollable agar konten muat banyak
           Flexible(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. JUDUL
+                  // --- 2. INPUT JUDUL (Gaya Baru) ---
                   TextField(
                     controller: _titleController,
-                    decoration: const InputDecoration(
-                      hintText: "Apa yang ingin dikerjakan?", 
-                      border: InputBorder.none,
-                      hintStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)
-                    ),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    autofocus: true, 
+                    autofocus: true,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    // Pakai helper dekorasi baru
+                    decoration: _buildInputDecoration('Judul Tugas', Icons.title, hint: 'Apa yang ingin dikerjakan?'),
                   ),
                   
-                  // 2. DESKRIPSI
+                  const SizedBox(height: 16),
+
+                  // --- 3. INPUT DESKRIPSI (Gaya Baru) ---
                   TextField(
                     controller: _descController,
-                    decoration: const InputDecoration(
-                      hintText: "Deskripsi (opsional)", 
-                      border: InputBorder.none, 
-                      icon: Icon(Icons.description_outlined, size: 20, color: Colors.grey)
-                    ),
-                    style: const TextStyle(fontSize: 14),
-                    maxLines: 3,
-                    minLines: 1,
+                    maxLines: 2,
+                    decoration: _buildInputDecoration('Deskripsi', Icons.notes, hint: 'Detail tugas (opsional)'),
                   ),
-                  const Divider(),
 
-                  // 3. SUBTASKS (Baru ditambahkan)
+                  const SizedBox(height: 24),
+                  const Divider(thickness: 1),
+                  const SizedBox(height: 8),
+
+                  // --- 4. SUBTASKS (Logika Tetap, Tampilan Lebih Rapi) ---
                   if (_subtasks.isNotEmpty) ...[
                     const Text('Sub-tugas:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 8),
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _subtasks.length,
-                      itemBuilder: (ctx, index) => ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.check_box_outline_blank, size: 18),
-                        title: Text(_subtasks[index]),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.close, size: 18, color: Colors.red),
-                          onPressed: () => _removeSubtask(index),
+                      itemBuilder: (ctx, index) => Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey[200]!),
+                          borderRadius: BorderRadius.circular(8)
+                        ),
+                        child: ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.check_circle_outline, size: 20, color: Colors.grey),
+                          title: Text(_subtasks[index]),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                            onPressed: () => _removeSubtask(index),
+                          ),
                         ),
                       ),
                     ),
                   ],
-                  // Input Subtask Baru
+                  // Input Subtask
                   Row(
                     children: [
                       Expanded(
@@ -229,29 +273,33 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                           decoration: const InputDecoration(
                             hintText: "Tambah item checklist...",
                             border: InputBorder.none,
-                            icon: Icon(Icons.checklist, size: 20, color: Colors.grey),
+                            icon: Icon(Icons.add_task, color: Colors.purple),
                           ),
-                          style: const TextStyle(fontSize: 14),
-                          onSubmitted: (_) => _addSubtask(), // Tekan enter untuk tambah
+                          onSubmitted: (_) => _addSubtask(),
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.add, color: Colors.blue),
-                        onPressed: _addSubtask,
-                      )
+                      IconButton(icon: const Icon(Icons.add_circle, color: Colors.purple), onPressed: _addSubtask)
                     ],
                   ),
-                  const Divider(),
+                  
+                  const Divider(thickness: 1),
+                  const SizedBox(height: 8),
 
-                  // 4. KATEGORI
+                  // --- 5. KATEGORI (Logika Chip Tetap) ---
+                  const Text("Kategori", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const SizedBox(height: 8),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: Colors.blue), 
+                        ActionChip(
+                          avatar: const Icon(Icons.add, size: 16, color: Colors.white),
+                          label: const Text("Baru"),
+                          backgroundColor: Colors.purple,
+                          labelStyle: const TextStyle(color: Colors.white),
                           onPressed: _showAddCategoryDialog,
                         ),
+                        const SizedBox(width: 8),
                         ..._localCategories.map((cat) {
                           final isSelected = _selectedCategoryIds.contains(cat.id);
                           return Padding(
@@ -259,7 +307,9 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                             child: FilterChip(
                               label: Text(cat.name),
                               selected: isSelected,
-                              selectedColor: Colors.blue[100],
+                              selectedColor: Colors.purple[100],
+                              checkmarkColor: Colors.purple,
+                              labelStyle: TextStyle(color: isSelected ? Colors.purple : Colors.black),
                               onSelected: (val) {
                                 setState(() {
                                   val ? _selectedCategoryIds.add(cat.id) : _selectedCategoryIds.remove(cat.id);
@@ -271,9 +321,10 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 10),
 
-                  // 5. TANGGAL & WAKTU (Shortcut + Custom)
+                  const SizedBox(height: 16),
+
+                  // --- 6. TANGGAL & OPSI LAIN ---
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -296,75 +347,79 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
-                  // 6. PILIHAN BERULANG (RECURRENCE)
-                  Row(
-                    children: [
-                      const Icon(Icons.repeat, color: Colors.grey, size: 20),
-                      const SizedBox(width: 10),
-                      DropdownButton<String>(
+                  // Recurrence Dropdown
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                       border: Border.all(color: Colors.grey[300]!),
+                       borderRadius: BorderRadius.circular(8)
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
                         value: _selectedRecurrence,
-                        underline: Container(), // Hilangkan garis bawah
+                        icon: const Icon(Icons.repeat, color: Colors.purple, size: 20),
                         items: _recurrenceOptions.map((opt) {
-                          return DropdownMenuItem(
-                            value: opt['value'], 
-                            child: Text(opt['label']!)
-                          );
+                          return DropdownMenuItem(value: opt['value'], child: Text(opt['label']!));
                         }).toList(),
                         onChanged: (val) {
                           if (val != null) setState(() => _selectedRecurrence = val);
                         },
                       ),
-                    ],
+                    ),
                   ),
-
+                  
                   const SizedBox(height: 20),
                 ],
               ),
             ),
           ),
 
-          // 7. TOMBOL SIMPAN (Sticky di bawah)
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(vertical: 14)
+          // --- 7. TOMBOL SIMPAN (Gaya Baru) ---
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal', style: TextStyle(color: Colors.grey)),
               ),
-              onPressed: () async {
-                if (_titleController.text.isNotEmpty) {
-                  
-                  // 1. Simpan ke Backend dan TUNGGU return ID Task
-                  final int? newTaskId = await widget.onSave(
-                    _titleController.text, 
-                    _descController.text, 
-                    _selectedDate, 
-                    _selectedCategoryIds, 
-                    _subtasks,
-                    _selectedRecurrence // <-- Data baru
-                  );
-                  
-                  // 2. JADWALKAN NOTIFIKASI (Jika sukses simpan & ada deadline)
-                  if (newTaskId != null && _selectedDate != null) {
-                    await NotificationService().scheduleTaskNotifications(
-                      newTaskId, 
-                      _titleController.text, 
-                      _selectedDate!
-                    );
-                  }
-                  
-                  // 3. Tutup Sheet jika masih terpasang (mounted)
-                  if (mounted) Navigator.pop(context);
-                }
-              },
-              child: const Text("Simpan Tugas", style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                ),
+                onPressed: () async {
+                   // Logika simpan lama kamu, copy paste dari tombol lama jika perlu,
+                   // atau gunakan yang ini (sudah disesuaikan dengan variabelmu)
+                   if (_titleController.text.isNotEmpty) {
+                      final int? newTaskId = await widget.onSave(
+                        _titleController.text, 
+                        _descController.text, 
+                        _selectedDate, 
+                        _selectedCategoryIds, 
+                        _subtasks,
+                        _selectedRecurrence
+                      );
+                      
+                      if (newTaskId != null && _selectedDate != null) {
+                        await NotificationService().scheduleTaskNotifications(
+                          newTaskId, 
+                          _titleController.text, 
+                          _selectedDate!
+                        );
+                      }
+                      if (mounted) Navigator.pop(context);
+                   }
+                },
+                child: const Text('Simpan Tugas', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
         ],
       ),
     );

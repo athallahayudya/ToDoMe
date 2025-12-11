@@ -215,47 +215,68 @@ class _MainScreenState extends State<MainScreen> {
   void _showAddTaskSheet() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, 
-      backgroundColor: Colors.transparent, 
-      builder: (_) => Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: 16,
         ),
-        child: AddTaskSheet(
-          categories: _allCategories,
-          onCreateCategory: (name) async {
-             try {
-               final newCat = await _apiService.createCategory(name);
-               final newCats = await _apiService.getCategories();
-               setState(() => _allCategories = newCats);
-               return newCat;
-             } catch (e) {
-               _showError(e.toString());
-               return null;
-             }
-          },
-          onSave: (judul, deskripsi, deadline, catIds, subtasks, recurrence) async {
-             try {
-               debugPrint("Mencoba membuat tugas baru: $judul");
-               final newTask = await _apiService.createTask(
-                 judul: judul, 
-                 deskripsi: deskripsi, 
-                 deadline: deadline, 
-                 categoryIds: catIds,
-                 subtasks: subtasks,
-                 recurrence: recurrence 
-               );
-               _loadData(); 
-               debugPrint("SUKSES: Tugas dibuat dengan ID: ${newTask.id}");
-               return newTask.id; 
-             } catch (e) {
-               debugPrint("ERROR: Gagal membuat tugas: $e");
-               _showError(e.toString());
-               return null;
-             }
-          },
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(), 
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AddTaskSheet(
+                    categories: _allCategories,
+                    onCreateCategory: (name) async {
+                      try {
+                        final newCat = await _apiService.createCategory(name);
+                        final newCats = await _apiService.getCategories();
+                        setState(() => _allCategories = newCats);
+                        return newCat;
+                      } catch (e) {
+                        _showError(e.toString());
+                        return null;
+                      }
+                    },
+                    onSave: (judul, deskripsi, deadline, catIds, subtasks, recurrence) async {
+                      try {
+                        final newTask = await _apiService.createTask(
+                          judul: judul,
+                          deskripsi: deskripsi,
+                          deadline: deadline,
+                          categoryIds: catIds,
+                          subtasks: subtasks,
+                          recurrence: recurrence,
+                        );
+                        _loadData();
+                        return newTask.id;
+                      } catch (e) {
+                        _showError(e.toString());
+                        return null;
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -266,32 +287,128 @@ class _MainScreenState extends State<MainScreen> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Buat Kategori Baru'),
-          content: TextField(
-            controller: _categoryController,
-            decoration: const InputDecoration(labelText: 'Nama Kategori'),
-            autofocus: true,
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
+          elevation: 8,
+          backgroundColor: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- Header Judul ---
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.category_rounded,
+                        color: Colors.purple,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Text(
+                      'Kategori Baru',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 24),
+
+                // --- Input Field ---
+                TextField(
+                  controller: _categoryController,
+                  autofocus: true,
+                  style: const TextStyle(fontSize: 16),
+                  decoration: InputDecoration(
+                    labelText: 'Nama Kategori',
+                    hintText: 'Misal: Wishlist, Hobi...',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    prefixIcon: const Icon(Icons.label_outline, color: Colors.purple),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.purple, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // --- Tombol Aksi ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // Tombol Batal
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey[600],
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(width: 8),
+                    // Tombol Simpan
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (_categoryController.text.isEmpty) return;
+                        try {
+                          Navigator.pop(context);
+                          
+                          // Proses simpan di background
+                          await _apiService.createCategory(_categoryController.text);
+                          _loadData();
+                          
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Kategori "${_categoryController.text}" berhasil dibuat!'),
+                              backgroundColor: Colors.purple,
+                            )
+                          );
+                        } catch (e) {
+                           // Jika gagal, tampilkan error (karena dialog sudah tutup)
+                          _showError(e.toString());
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple,
+                        foregroundColor: Colors.white,
+                        elevation: 2,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Simpan Kategori', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            ElevatedButton(
-              onPressed: () async {
-                if (_categoryController.text.isEmpty) return;
-                try {
-                  await _apiService.createCategory(_categoryController.text);
-                  Navigator.pop(context);
-                  _loadData();
-                } catch (e) {
-                  _showError(e.toString());
-                }
-              },
-              child: const Text('Simpan'),
-            ),
-          ],
+          ),
         );
       },
     );

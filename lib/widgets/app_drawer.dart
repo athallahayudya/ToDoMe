@@ -100,7 +100,7 @@ class AppDrawer extends StatelessWidget {
           // MENU BINTANG
           ListTile(
             leading: const Icon(Icons.star, color: Colors.amber),
-            title: const Text('Bintangi Tugas'),
+            title: const Text('Tugas Berbintang'),
             trailing: Text(starredTasksCount.toString()),
             onTap: () {
               Navigator.pop(context);
@@ -112,6 +112,8 @@ class AppDrawer extends StatelessWidget {
 
           // MENU KATEGORI
           ExpansionTile(
+            shape: const Border(),
+            collapsedShape: const Border(),
             leading: const Icon(Icons.category),
             title: const Text('Kategori'),
             initiallyExpanded: isKategoriExpanded,
