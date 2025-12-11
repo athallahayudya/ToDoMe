@@ -17,14 +17,15 @@ class NotificationService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
 
   // ===========================================================
-  // ✅ INIT UTAMA (LOCAL + FCM)
+  // ✅ INIT UTAMA (LOCAL + FCM FOREGROUND)
   // ===========================================================
   Future<void> init(BuildContext context) async {
-    debugPrint("🔔 [NOTIF] INIT");
+    debugPrint("🔔 [NOTIF] INIT SERVICES");
 
     // ============ TIMEZONE LOCAL ============
     tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Jakarta'));
+    debugPrint("✅ TIMEZONE SET: Asia/Jakarta");
 
     // ============ INIT LOCAL NOTIFICATION ============
     const AndroidInitializationSettings androidSettings =
@@ -36,7 +37,7 @@ class NotificationService {
     await flutterLocalNotificationsPlugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (details) {
-        debugPrint("✅ CLICK NOTIF LOCAL: ${details.payload}");
+        debugPrint("✅ CLICK NOTIF: ${details.payload}");
       },
     );
 
@@ -48,19 +49,28 @@ class NotificationService {
   // ✅ PERMISSION ANDROID 13+
   // ===========================================================
   Future<void> requestPermissions() async {
+    debugPrint("📛 REQUEST PERMISSIONS");
+
     if (Platform.isAndroid) {
       final android = flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
 
       await android?.requestNotificationsPermission();
+      debugPrint("✅ ANDROID NOTIFICATION PERMISSION REQUESTED");
     }
 
-    await _firebaseMessaging.requestPermission();
+    await _firebaseMessaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    debugPrint("✅ FCM PERMISSION REQUESTED");
   }
 
   // ===========================================================
-  // ✅ INIT FIREBASE NOTIFICATION
+  // ✅ INIT FIREBASE NOTIFICATION (FOREGROUND)
   // ===========================================================
   Future<void> _initFCM(BuildContext context) async {
     final token = await _firebaseMessaging.getToken();
@@ -68,15 +78,24 @@ class NotificationService {
 
     // ✅ NOTIF MASUK SAAT APP DIBUKA (FOREGROUND)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      final title = message.notification?.title ?? "Notifikasi";
-      final body = message.notification?.body ?? "";
+      debugPrint("📩 FCM FOREGROUND RECEIVED");
+
+      final title = message.notification?.title ??
+          message.data['title'] ??
+          "Notifikasi";
+
+      final body =
+          message.notification?.body ?? message.data['body'] ?? "";
+
+      debugPrint("🟢 Foreground Title: $title");
+      debugPrint("🟢 Foreground Body : $body");
 
       _showForegroundNotification(title, body);
     });
 
-    // ✅ NOTIF DITEKAN SAAT APP BACKGROUND
+    // ✅ NOTIF DIKLIK SAAT APP BACKGROUND / TERMINATED
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      debugPrint("✅ NOTIF DIKLIK DARI BACKGROUND");
+      debugPrint("✅ NOTIF DIKLIK DARI BACKGROUND / TERMINATED");
     });
   }
 
@@ -84,6 +103,8 @@ class NotificationService {
   // ✅ TAMPILKAN NOTIFIKASI SAAT FOREGROUND
   // ===========================================================
   Future<void> _showForegroundNotification(String title, String body) async {
+    debugPrint("🔔 SHOW FOREGROUND NOTIF → $title");
+
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
       'todome_fcm_alerts',
@@ -106,46 +127,55 @@ class NotificationService {
   }
 
   // ===========================================================
-  // ✅ SCHEDULE NOTIFIKASI TUGAS (VERSI LAMA KAMU)
+  // ✅ SCHEDULE NOTIFIKASI REMINDER TUGAS (LOKAL + DEBUG)
   // ===========================================================
   Future<void> scheduleTaskNotifications(
       int taskId, String title, DateTime deadline) async {
-    final baseId = taskId * 1000;
 
-    final now = tz.TZDateTime.now(tz.local);
+    debugPrint("=======================================");
+    debugPrint("📌 SCHEDULE TASK REMINDER");
+    debugPrint("📌 TASK ID   : $taskId");
+    debugPrint("📌 TITLE     : $title");
+    debugPrint("📌 DEADLINE  : $deadline");
+    debugPrint("📌 NOW       : ${DateTime.now()}");
+
+    final baseId = taskId * 1000;
     final tzDeadline = tz.TZDateTime.from(deadline, tz.local);
 
-    await _schedule(baseId + 1, "H-7 Jam: $title",
-        tzDeadline.subtract(const Duration(hours: 7)));
-    await _schedule(baseId + 2, "H-1 Jam: $title",
+    debugPrint("📌 DEADLINE TZ: $tzDeadline");
+
+    await _schedule(baseId + 1, "H-1 Jam: $title",
         tzDeadline.subtract(const Duration(hours: 1)));
-    await _schedule(baseId + 3, "H-30 Menit: $title",
+
+    await _schedule(baseId + 2, "H-30 Menit: $title",
         tzDeadline.subtract(const Duration(minutes: 30)));
-    await _schedule(baseId + 4, "H-15 Menit: $title",
+
+    await _schedule(baseId + 3, "H-15 Menit: $title",
         tzDeadline.subtract(const Duration(minutes: 15)));
-    await _schedule(baseId + 5, "H-10 Menit: $title",
-        tzDeadline.subtract(const Duration(minutes: 10)));
 
-    DateTime iterator = DateTime(now.year, now.month, now.day);
+    await _schedule(baseId + 4, "H-5 Menit: $title",
+        tzDeadline.subtract(const Duration(minutes: 5)));
 
-    int index = 0;
-    while (iterator.isBefore(deadline)) {
-      final pagi =
-          tz.TZDateTime(tz.local, iterator.year, iterator.month, iterator.day, 7);
-      final malam = tz.TZDateTime(
-          tz.local, iterator.year, iterator.month, iterator.day, 19);
-
-      await _schedule(baseId + 10 + index, "Pagi: $title", pagi);
-      await _schedule(baseId + 11 + index, "Malam: $title", malam);
-
-      index += 2;
-      iterator = iterator.add(const Duration(days: 1));
-    }
+    debugPrint("✅ ALL REMINDER REQUEST SENT");
+    debugPrint("=======================================");
   }
 
+  // ===========================================================
+  // ✅ INTERNAL SCHEDULE HANDLER + DEBUG
+  // ===========================================================
   Future<void> _schedule(int id, String title, tz.TZDateTime time) async {
     final now = tz.TZDateTime.now(tz.local);
-    if (time.isBefore(now)) return;
+
+    debugPrint("⏰ CEK SCHEDULE:");
+    debugPrint("   ID    : $id");
+    debugPrint("   TITLE : $title");
+    debugPrint("   TIME  : $time");
+    debugPrint("   NOW   : $now");
+
+    if (time.isBefore(now)) {
+      debugPrint("⚠️ SKIPPED — WAKTU SUDAH LEWAT");
+      return;
+    }
 
     try {
       await flutterLocalNotificationsPlugin.zonedSchedule(
@@ -168,9 +198,9 @@ class NotificationService {
             UILocalNotificationDateInterpretation.absoluteTime,
       );
 
-      debugPrint("✔ Scheduled ID $id at $time");
+      debugPrint("✔ BERHASIL SCHEDULE ID $id JAM $time");
     } catch (e) {
-      debugPrint("❌ Schedule error: $e");
+      debugPrint("❌ GAGAL SCHEDULE: $e");
     }
   }
 
@@ -178,9 +208,14 @@ class NotificationService {
   // ✅ CANCEL SEMUA NOTIFIKASI TASK
   // ===========================================================
   Future<void> cancelTaskNotifications(int taskId) async {
+    debugPrint("🧹 CANCEL NOTIFIKASI TASK: $taskId");
+
     final baseId = taskId * 1000;
     for (int i = 0; i < 150; i++) {
       await flutterLocalNotificationsPlugin.cancel(baseId + i);
     }
+
+    debugPrint("✅ SEMUA NOTIFIKASI TASK DICANCEL");
   }
 }
+  

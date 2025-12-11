@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:414205389284:android:1d07709c7206877c28fff1",
+        "mobilesdk_app_id": "1:414205389284:android:16f13a804fb66e3d28fff1",
         "android_client_info": {
-          "package_name": "com.example.todome"
+          "package_name": "com.todome.app"
         }
       },
       "oauth_client": [],

@@ -1,6 +1,5 @@
 buildscript {
-    // Mendefinisikan versi Kotlin (sesuai file lama Anda)
-    val kotlin_version by extra("1.8.20")
+    val kotlin_version by extra("2.1.0")
     repositories {
         google()
         mavenCentral()

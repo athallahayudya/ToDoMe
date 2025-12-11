@@ -10,46 +10,89 @@ import 'services/notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+// 4. LOCAL NOTIFICATION UNTUK BACKGROUND
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
 import 'screens/splash_screen.dart';
 
-// ==========================================================
-// ✅ HANDLER NOTIFIKASI SAAT APP MATI / BACKGROUND
-// ==========================================================
-Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
+/// ==========================================================
+/// ✅ SATU-SATUNYA BACKGROUND HANDLER (WAJIB TOP LEVEL)
+/// ==========================================================
+@pragma('vm:entry-point')
+Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  debugPrint("🔔 Background Message: ${message.notification?.title}");
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  const AndroidInitializationSettings androidInit =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initSettings =
+      InitializationSettings(android: androidInit);
+
+  await flutterLocalNotificationsPlugin.initialize(initSettings);
+
+  final title = message.notification?.title ??
+      message.data['title'] ??
+      "Notifikasi";
+
+  final body =
+      message.notification?.body ?? message.data['body'] ?? "";
+
+  const AndroidNotificationDetails androidDetails =
+      AndroidNotificationDetails(
+    'todome_fcm_alerts',
+    'Notifikasi Server',
+    importance: Importance.max,
+    priority: Priority.high,
+    playSound: true,
+    enableVibration: true,
+  );
+
+  const NotificationDetails notificationDetails =
+      NotificationDetails(android: androidDetails);
+
+  await flutterLocalNotificationsPlugin.show(
+    DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    title,
+    body,
+    notificationDetails,
+  );
+
+  debugPrint("✅ Background FCM notification shown");
 }
 
 void main() async {
-  // 4. PASTIKAN FLUTTER READY
+  // 5. PASTIKAN FLUTTER READY
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 5. INIT FIREBASE
+  // 6. INIT FIREBASE
   await Firebase.initializeApp();
 
-  // 6. SET HANDLER BACKGROUND FCM
-  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+  // ✅ 7. REGISTER BACKGROUND FCM HANDLER (PALING PENTING)
+  FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
 
-  // 7. FORMAT TANGGAL INDONESIA
+  // 8. FORMAT TANGGAL INDONESIA
   await initializeDateFormatting('id_ID', null);
 
-  // 8. REQUEST IZIN FCM (SATU KALI SAJA)
+  // 9. REQUEST IZIN FCM
   await FirebaseMessaging.instance.requestPermission(
     alert: true,
     badge: true,
     sound: true,
   );
 
-  // 9. AMBIL TOKEN FCM (LOG SAJA)
+  // 10. AMBIL TOKEN FCM (LOG SAJA)
   final fcmToken = await FirebaseMessaging.instance.getToken();
   debugPrint("✅ FCM TOKEN: $fcmToken");
 
   runApp(const MyApp());
 }
 
-// ==========================================================
-// ✅ ROOT APP
-// ==========================================================
+/// ==========================================================
+/// ✅ ROOT APP
+/// ==========================================================
 class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
 
@@ -79,8 +122,6 @@ class _MyAppState extends State<MyApp> {
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       debugShowCheckedModeBanner: false,
-
-      // Tetap SplashScreen
       home: const SplashScreen(),
     );
   }
